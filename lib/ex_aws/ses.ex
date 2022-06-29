@@ -9,6 +9,8 @@ defmodule ExAws.SES do
 
   @notification_types [:bounce, :complaint, :delivery]
 
+  @type tag :: %{Key: String.t(), Value: String.t()}
+
   @doc "Verifies an email address"
   @spec verify_email_identity(email :: binary) :: ExAws.Operation.Query.t()
   def verify_email_identity(email) do
@@ -185,7 +187,7 @@ defmodule ExAws.SES do
           | {:return_path_arn, String.t()}
           | {:source_arn, String.t()}
           | {:default_template_data, String.t()}
-          | {:tags, %{(String.t() | atom) => String.t()}}
+          | {:default_tags, [tag]}
 
   @spec send_bulk_templated_email(
           template :: binary,
@@ -197,7 +199,7 @@ defmodule ExAws.SES do
     params =
       opts
       |> build_opts([:configuration_set_name, :return_path, :return_path_arn, :source_arn, :default_template_data])
-      |> Map.merge(format_tags(opts[:tags]))
+      |> Map.merge(format_tags(opts[:default_tags], "default_tags"))
       |> Map.merge(format_bulk_destinations(destinations))
       |> Map.put("DefaultTemplateData", format_template_data(opts[:default_template_data]) )
       |> Map.put("Source", source)
@@ -305,13 +307,13 @@ defmodule ExAws.SES do
 
   defp add_replacement_template_data(destination, _, _), do: destination
 
-  defp format_tags(nil), do: %{}
+  defp format_tags(nil, _), do: %{}
 
-  defp format_tags(tags) do
+  defp format_tags(tags, param_name \\ "tags") do
     tags
     |> Enum.with_index(1)
     |> Enum.reduce(%{}, fn {tag, index}, acc ->
-      key = camelize_key("tags.member.#{index}")
+      key = camelize_key("#{param_name}.member.#{index}")
       Map.merge(acc, flatten_attrs(tag, key))
     end)
   end
